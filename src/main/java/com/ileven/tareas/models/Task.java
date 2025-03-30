@@ -1,11 +1,12 @@
 package com.ileven.tareas.models;
 
 import jakarta.persistence.*;
+import lombok.Data;
 
 @Entity
+@Data
 @Table(name = "tasks")
 public class Task {
-    
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
 
@@ -22,6 +23,7 @@ public class Task {
         this.name = name;
         this.description = description;
     }
+    
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 
