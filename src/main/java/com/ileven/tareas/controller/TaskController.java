@@ -2,39 +2,56 @@ package com.ileven.tareas.controller;
 
 import org.springframework.web.bind.annotation.*;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
 
+import com.ileven.tareas.dto.task.TaskRequestDTO;
+import com.ileven.tareas.dto.task.TaskRequestDatatable;
 import com.ileven.tareas.models.Task;
-import com.ileven.tareas.repositories.TaskRepository;
+import com.ileven.tareas.services.TaskService;
 
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.BindingResult;
+
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api")
 public class TaskController {
 
     @Autowired
-    private TaskRepository taskRepository;
+    private final TaskService taskService;
+
+    @PersistenceContext
+    private EntityManager entityManager;
+
+    public TaskController(TaskService taskService) {
+        this.taskService = taskService;
+    }
 
     @GetMapping("tasks")
-    public Page<Task> getPaginateTasks(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "5") int size) {
-        Pageable pageable = PageRequest.of(page, size);
-        return taskRepository.findAll(pageable);
+    public ResponseEntity<Page<Task>> getPaginateTasks(@RequestBody @Valid TaskRequestDatatable request) {
+        return ResponseEntity.ok(this.taskService.getPaginateTask(request));
+        // return ResponseEntity.ok(this.taskService.getPaginateTask(request.getPage(), request.getSize()));
     }
 
     @PostMapping("task")
-    public ResponseEntity<Map<String, Object>> createTask(@RequestBody Task task) {
+    public ResponseEntity<?> createTask(@RequestBody @Valid TaskRequestDTO request,
+            BindingResult result) {
         try {
-            Task newTask = new Task();
-            newTask.setName(task.getName());
-            newTask.setDescription(task.getDescription());
-            taskRepository.save(newTask);
+            List<String> errors = getValidationErrors(result);
+            if (!errors.isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of(
+                        "status", 400,
+                        "message", errors));
+            }
+
+            this.taskService.createTask(request);
             return ResponseEntity.status(200).body(Map.of(
                     "status", 200,
                     "message", "Task created successfully"));
@@ -46,18 +63,16 @@ public class TaskController {
     }
 
     @PutMapping("task/{id}")
-    public ResponseEntity<Map<String, Object>> updateTask(@PathVariable String id, @RequestBody Task entity) {
+    public ResponseEntity<?> updateTask(@PathVariable String id, @RequestBody @Valid TaskRequestDTO request,
+            BindingResult result) {
         try {
-            Task task = taskRepository.findById(Long.parseLong(id)).orElse(null);
-            if (task == null) {
-                return ResponseEntity.status(404).body(Map.of(
-                        "status", 404,
-                        "message", "Task not found"));
+            List<String> errors = getValidationErrors(result);
+            if (!errors.isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of(
+                        "status", 400,
+                        "message", errors));
             }
-
-            task.setName(entity.getName());
-            task.setDescription(entity.getDescription());
-            taskRepository.save(task);
+            taskService.updateTask(Long.parseLong(id), request);
             return ResponseEntity.status(200).body(Map.of(
                     "status", 200,
                     "message", "Task updated successfully"));
@@ -68,17 +83,28 @@ public class TaskController {
         }
     }
 
+    private List<String> getValidationErrors(BindingResult result) {
+        return result.getAllErrors().stream()
+                .map(error -> error.getDefaultMessage())
+                .collect(Collectors.toList());
+    }
+
+    @GetMapping("task/{id}")
+    public ResponseEntity<?> getTask(@PathVariable String id) {
+        try {
+            Task task = taskService.getTaskById(Long.parseLong(id));
+            return ResponseEntity.ok(task);
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of(
+                    "status", 500,
+                    "message", "Error retrieving task: " + e.getMessage()));
+        }
+    }
+
     @DeleteMapping("task/{id}")
     public ResponseEntity<Map<String, Object>> deleteTask(@PathVariable String id) {
         try {
-            Task task = taskRepository.findById(Long.parseLong(id)).orElse(null);
-            if (task == null) {
-                return ResponseEntity.status(404).body(Map.of(
-                        "status", 404,
-                        "message", "Task not found"));
-            }
-
-            taskRepository.delete(task);
+            taskService.deleteTask(Long.parseLong(id));
             return ResponseEntity.status(200).body(Map.of(
                     "status", 200,
                     "message", "Task deleted successfully"));

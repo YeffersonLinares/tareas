@@ -16,6 +16,10 @@ public class Task {
     private String name;
     @Column(name = "description", nullable = false)
     private String description;
+    
+    @ManyToOne
+    @JoinColumn(name = "user_id", nullable = false)
+    private User user;
 
     public Task() { }
 
@@ -32,5 +36,18 @@ public class Task {
 
     public String getDescription() { return description; }
     public void setDescription(String description) { this.description = description; }
+
+    public User getUser() { return user; }
+    public void setUser(User user) { this.user = user; }
+
+    @Override
+    public String toString() {
+        return "Task{" +
+                "id=" + id +
+                ", name='" + name + '\'' +
+                ", description='" + description + '\'' +
+                ", user=" + user +
+                '}';
+    }
 
 }
